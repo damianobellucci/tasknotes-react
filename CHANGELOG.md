@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [1.0.5] - 2026-03-14
+
+### Fixed
+- Release APK now falls back to default Cognito region/client id when `EXPO_PUBLIC_COGNITO_REGION` and `EXPO_PUBLIC_COGNITO_CLIENT_ID` are not injected at build time.
+- Login screen no longer starts with immediate "Cognito missing config" in release builds for the known production Cognito setup.
+
 ## [1.0.4] - 2026-03-14
 
 ### Fixed

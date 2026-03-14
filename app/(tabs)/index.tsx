@@ -22,30 +22,30 @@ import {
 } from '@/src/auth-cognito';
 import { mergeSnapshots } from '@/src/merge-service';
 import {
-    type AnyItem,
-    type AppSnapshot,
-    type AuthSession,
-    type ItemType,
-    type NoteSortMode,
-    type TaskFilter,
-    type TaskSortMode,
-    addTag,
-    buildDefaultSnapshot,
-    clearAuthSession,
-    createNote,
-    createSyncBaseline,
-    createTask,
-    getCloudConfig,
-    hasUnsyncedChanges,
-    loadAuthSession,
-    loadSnapshot,
-    normalizeTag,
-    removeTag,
-    sanitizeSnapshot,
-    saveAuthSession,
-    saveSnapshot,
-    sortItems,
-    withResequencedManualOrder,
+  addTag,
+  buildDefaultSnapshot,
+  clearAuthSession,
+  createNote,
+  createSyncBaseline,
+  createTask,
+  getCloudConfig,
+  hasUnsyncedChanges,
+  loadAuthSession,
+  loadSnapshot,
+  normalizeTag,
+  removeTag,
+  sanitizeSnapshot,
+  saveAuthSession,
+  saveSnapshot,
+  sortItems,
+  type AnyItem,
+  type AppSnapshot,
+  type AuthSession,
+  type ItemType,
+  type NoteSortMode,
+  type TaskFilter,
+  type TaskSortMode,
+  withResequencedManualOrder,
 } from '@/src/tasknotes';
 
 type MainView = 'tasks' | 'notes' | 'trash';
@@ -57,6 +57,17 @@ type UndoState = {
   prevDeletedAt: string | null;
   expiresAt: number;
 };
+
+const DEFAULT_COGNITO_REGION = 'eu-west-1';
+const DEFAULT_COGNITO_CLIENT_ID = '2cjbrjt7huhssf911no8plmbbc';
+
+function getCognitoRegion(): string {
+  return (process.env.EXPO_PUBLIC_COGNITO_REGION ?? DEFAULT_COGNITO_REGION).trim();
+}
+
+function getCognitoClientId(): string {
+  return (process.env.EXPO_PUBLIC_COGNITO_CLIENT_ID ?? DEFAULT_COGNITO_CLIENT_ID).trim();
+}
 
 const CLOUD_SYNC_INTERVAL_MS = 15000;
 
@@ -117,10 +128,10 @@ function formatDate(iso: string | null | undefined): string {
 
 function getMissingCognitoEnv(): string[] {
   const missing: string[] = [];
-  if (!(process.env.EXPO_PUBLIC_COGNITO_REGION ?? '').trim()) {
+  if (!getCognitoRegion()) {
     missing.push('EXPO_PUBLIC_COGNITO_REGION');
   }
-  if (!(process.env.EXPO_PUBLIC_COGNITO_CLIENT_ID ?? '').trim()) {
+  if (!getCognitoClientId()) {
     missing.push('EXPO_PUBLIC_COGNITO_CLIENT_ID');
   }
   return missing;
@@ -163,8 +174,8 @@ export default function TaskNotesMobileScreen() {
   const cloudSyncEnabled = !!cloudConfig.syncUrl && (!!cloudConfig.apiKey || !!authSession?.accessToken);
 
   useEffect(() => {
-    const region = process.env.EXPO_PUBLIC_COGNITO_REGION ?? '';
-    const clientId = process.env.EXPO_PUBLIC_COGNITO_CLIENT_ID ?? '';
+    const region = getCognitoRegion();
+    const clientId = getCognitoClientId();
     const missing = getMissingCognitoEnv();
     if (!missing.length) {
       configureAmplify(region, clientId);
