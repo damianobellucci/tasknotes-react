@@ -36,6 +36,56 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
    After changing `.env`, restart Expo.
 
+## Release and versioning
+
+This repository is configured for Semantic Versioning with Git tags and GitHub Releases.
+
+### CI and release workflows
+
+- `.github/workflows/ci.yml`: runs lint and tests on every push to `main` and every pull request.
+- `.github/workflows/release.yml`: runs on tags like `v1.2.3`, verifies that tag version matches `package.json`, runs lint/tests, then creates a GitHub Release automatically.
+
+### Create a new release
+
+1. Choose the bump type:
+
+    ```bash
+    npm run release:patch
+    # or
+    npm run release:minor
+    # or
+    npm run release:major
+    ```
+
+2. Push commit and tag:
+
+    ```bash
+    git push origin main --follow-tags
+    ```
+
+3. GitHub Actions will publish the Release for the pushed `v*.*.*` tag.
+
+### Mobile build distribution
+
+- Production Android build:
+
+   ```bash
+   npm run build:android
+   ```
+
+- Production iOS build:
+
+   ```bash
+   npm run build:ios
+   ```
+
+- Submit Android/iOS binaries through EAS Submit:
+
+   ```bash
+   npm run submit:android
+   npm run submit:ios
+   ```
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)

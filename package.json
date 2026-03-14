@@ -10,7 +10,15 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "release:check": "npm run lint && npm test",
+    "release:patch": "npm run release:check && npm version patch -m \"chore(release): %s\"",
+    "release:minor": "npm run release:check && npm version minor -m \"chore(release): %s\"",
+    "release:major": "npm run release:check && npm version major -m \"chore(release): %s\"",
+    "build:android": "eas build --platform android --profile production",
+    "build:ios": "eas build --platform ios --profile production",
+    "submit:android": "eas submit --platform android --profile production",
+    "submit:ios": "eas submit --platform ios --profile production"
   },
   "dependencies": {
     "@aws-amplify/auth": "^6.19.1",
@@ -53,6 +61,7 @@
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "jest": "~29.7.0",
+    "eas-cli": "^16.25.0",
     "ts-jest": "^29.4.6",
     "typescript": "~5.9.2"
   },
