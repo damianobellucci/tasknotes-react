@@ -67,14 +67,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate Android project
+        run: npx expo prebuild --platform android --non-interactive
+
       - name: Configure Android local properties
         shell: bash
         run: |
-          if [ -z "$ANDROID_SDK_ROOT" ]; then
+          SDK_PATH="$ANDROID_SDK_ROOT"
+          if [ -z "$SDK_PATH" ]; then
+            SDK_PATH="$ANDROID_HOME"
+          fi
+          if [ -z "$SDK_PATH" ]; then
             echo "ANDROID_SDK_ROOT is not set"
             exit 1
           fi
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+          mkdir -p android
+          echo "sdk.dir=$SDK_PATH" > android/local.properties
 
       - name: Build release APK
         run: |

@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [1.0.4] - 2026-03-14
+
+### Fixed
+- GitHub Release workflow now generates the Android project in CI before Gradle execution.
+- Release pipeline now writes `android/local.properties` only after resolving a valid Android SDK path.
+
+### Changed
+- Android APK upload process in GitHub Releases is now resilient for Expo-managed repositories where `android/` is not tracked.
+
+## [1.0.3] - 2026-03-14
+
+### Added
+- Android APK build and upload as a GitHub Release asset for semantic tags.
+
+## [1.0.2] - 2026-03-14
+
+### Fixed
+- Release workflow shell syntax corrected for tag/version validation.
+
 ## [1.0.1] - 2026-03-14
 
 ### Added
