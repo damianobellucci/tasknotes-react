@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [1.0.6] - 2026-03-15
+
+### Added
+- Header quick actions for account, global tools, and sync status pages.
+- Full-screen task composer flow with explicit Save action, draft tag management, and task edit mode.
+- Task tag filter chips in the task filtering area, including `All tags` and per-tag chips.
+
+### Changed
+- Task creation now uses a floating action button and dedicated compose screen instead of inline task input.
+- Manual sort behavior now inserts newly created tasks at the top when manual mode is active.
+- Development login defaults can be provided locally through `.env.local` (`EXPO_PUBLIC_DEV_LOGIN_EMAIL`, `EXPO_PUBLIC_DEV_LOGIN_PASSWORD`) in dev mode only.
+
+### Fixed
+- Global tag deletion from settings now reliably removes the tag from the global catalog and from all tasks/notes.
+- Settings tag delete confirmation now works consistently on web and native platforms.
+
 ## [1.0.5] - 2026-03-14
 
 ### Fixed

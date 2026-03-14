@@ -1,9 +1,11 @@
+import { Feather } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -22,33 +24,34 @@ import {
 } from '@/src/auth-cognito';
 import { mergeSnapshots } from '@/src/merge-service';
 import {
-  addTag,
-  buildDefaultSnapshot,
-  clearAuthSession,
-  createNote,
-  createSyncBaseline,
-  createTask,
-  getCloudConfig,
-  hasUnsyncedChanges,
-  loadAuthSession,
-  loadSnapshot,
-  normalizeTag,
-  removeTag,
-  sanitizeSnapshot,
-  saveAuthSession,
-  saveSnapshot,
-  sortItems,
-  type AnyItem,
-  type AppSnapshot,
-  type AuthSession,
-  type ItemType,
-  type NoteSortMode,
-  type TaskFilter,
-  type TaskSortMode,
-  withResequencedManualOrder,
+    addTag,
+    buildDefaultSnapshot,
+    clearAuthSession,
+    createNote,
+    createSyncBaseline,
+    createTask,
+    getCloudConfig,
+    hasUnsyncedChanges,
+    loadAuthSession,
+    loadSnapshot,
+    normalizeTag,
+    removeTag,
+    sanitizeSnapshot,
+    saveAuthSession,
+    saveSnapshot,
+    sortItems,
+    withResequencedManualOrder,
+    type AnyItem,
+    type AppSnapshot,
+    type AuthSession,
+    type ItemType,
+    type NoteSortMode,
+    type Task,
+    type TaskFilter,
+    type TaskSortMode,
 } from '@/src/tasknotes';
 
-type MainView = 'tasks' | 'notes' | 'trash';
+type MainView = 'tasks' | 'notes' | 'trash' | 'account' | 'tools' | 'status' | 'task-compose';
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 type UndoState = {
@@ -60,6 +63,8 @@ type UndoState = {
 
 const DEFAULT_COGNITO_REGION = 'eu-west-1';
 const DEFAULT_COGNITO_CLIENT_ID = '2cjbrjt7huhssf911no8plmbbc';
+const DEV_DEFAULT_EMAIL = __DEV__ ? (process.env.EXPO_PUBLIC_DEV_LOGIN_EMAIL ?? '').trim() : '';
+const DEV_DEFAULT_PASSWORD = __DEV__ ? (process.env.EXPO_PUBLIC_DEV_LOGIN_PASSWORD ?? '').trim() : '';
 
 function getCognitoRegion(): string {
   return (process.env.EXPO_PUBLIC_COGNITO_REGION ?? DEFAULT_COGNITO_REGION).trim();
@@ -146,14 +151,18 @@ export default function TaskNotesMobileScreen() {
   const [searchText, setSearchText] = useState('');
   const [tagFilter, setTagFilter] = useState('all');
   const [taskFilter, setTaskFilter] = useState<TaskFilter>('all');
-  const [newTaskText, setNewTaskText] = useState('');
+  const [taskDraftId, setTaskDraftId] = useState<string | null>(null);
+  const [taskDraftText, setTaskDraftText] = useState('');
+  const [taskDraftPriority, setTaskDraftPriority] = useState(1);
+  const [taskDraftDone, setTaskDraftDone] = useState(false);
+  const [taskDraftTags, setTaskDraftTags] = useState<string[]>([]);
+  const [taskDraftTagInput, setTaskDraftTagInput] = useState('');
   const [newNoteText, setNewNoteText] = useState('');
-  const [newGlobalTag, setNewGlobalTag] = useState('');
   const [undoState, setUndoState] = useState<UndoState | null>(null);
   const [cloudStatus, setCloudStatus] = useState('Local only');
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
-  const [authEmailInput, setAuthEmailInput] = useState('');
-  const [authPasswordInput, setAuthPasswordInput] = useState('');
+  const [authEmailInput, setAuthEmailInput] = useState(DEV_DEFAULT_EMAIL);
+  const [authPasswordInput, setAuthPasswordInput] = useState(DEV_DEFAULT_PASSWORD);
   const [authNewPasswordInput, setAuthNewPasswordInput] = useState('');
   const [authChallengeSession, setAuthChallengeSession] = useState('');
   const [newPasswordRequired, setNewPasswordRequired] = useState(false);
@@ -250,6 +259,16 @@ export default function TaskNotesMobileScreen() {
   }, [snapshot]);
 
   useEffect(() => {
+    if (tagFilter === 'all') {
+      return;
+    }
+    if (snapshot.tags.some((tag) => tag.toLowerCase() === tagFilter.toLowerCase())) {
+      return;
+    }
+    setTagFilter('all');
+  }, [tagFilter, snapshot.tags]);
+
+  useEffect(() => {
     authSessionRef.current = authSession;
   }, [authSession]);
 
@@ -326,16 +345,114 @@ export default function TaskNotesMobileScreen() {
     return withResequencedManualOrder(next);
   }
 
-  function addTaskItem() {
-    const text = newTaskText.trim();
-    if (!text) {
+  function resetTaskDraft() {
+    setTaskDraftId(null);
+    setTaskDraftText('');
+    setTaskDraftPriority(1);
+    setTaskDraftDone(false);
+    setTaskDraftTags([]);
+    setTaskDraftTagInput('');
+  }
+
+  function openTaskComposer() {
+    resetTaskDraft();
+    setMainView('task-compose');
+  }
+
+  function openTaskEditor(task: Task) {
+    setTaskDraftId(task.id);
+    setTaskDraftText(task.text);
+    setTaskDraftPriority(task.priority);
+    setTaskDraftDone(task.done);
+    setTaskDraftTags(task.tags);
+    setTaskDraftTagInput('');
+    setMainView('task-compose');
+  }
+
+  function addTagToDraft() {
+    const tag = normalizeTag(taskDraftTagInput);
+    if (!tag) {
       return;
     }
+    setTaskDraftTags((prev) => addTag(prev, tag));
     setSnapshot((prev) => ({
       ...prev,
-      tasks: [...prev.tasks, createTask(text, prev.tasks.length)],
+      tags: addTag(prev.tags, tag),
     }));
-    setNewTaskText('');
+    setTaskDraftTagInput('');
+  }
+
+  function removeTagFromDraft(tag: string) {
+    setTaskDraftTags((prev) => removeTag(prev, tag));
+  }
+
+  function saveTaskDraft(showValidation = true) {
+    const text = taskDraftText.trim();
+    if (!text) {
+      if (taskDraftId && showValidation) {
+        Alert.alert('Task text required', 'Insert text before saving changes.');
+        return;
+      }
+      resetTaskDraft();
+      setMainView('tasks');
+      return;
+    }
+
+    const now = new Date().toISOString();
+    setSnapshot((prev) => {
+      if (taskDraftId) {
+        return {
+          ...prev,
+          tags: taskDraftTags.reduce((acc, tag) => addTag(acc, tag), prev.tags),
+          tasks: prev.tasks.map((task) =>
+            task.id === taskDraftId
+              ? {
+                  ...task,
+                  text,
+                  done: taskDraftDone,
+                  priority: taskDraftPriority,
+                  tags: taskDraftTags,
+                  updatedAt: now,
+                  editCount: task.text === text ? task.editCount : task.editCount + 1,
+                }
+              : task
+          ),
+        };
+      }
+
+      const created = createTask(text, prev.tasks.length);
+      const createdTask = {
+        ...created,
+        done: taskDraftDone,
+        priority: taskDraftPriority,
+        tags: taskDraftTags,
+        updatedAt: now,
+      };
+
+      if (prev.settings.taskSort === 'manual') {
+        return {
+          ...prev,
+          tags: taskDraftTags.reduce((acc, tag) => addTag(acc, tag), prev.tags),
+          tasks: [
+            { ...createdTask, manualOrder: 0 },
+            ...prev.tasks.map((task) => ({ ...task, manualOrder: task.manualOrder + 1 })),
+          ],
+        };
+      }
+
+      return {
+        ...prev,
+        tags: taskDraftTags.reduce((acc, tag) => addTag(acc, tag), prev.tags),
+        tasks: [...prev.tasks, createdTask],
+      };
+    });
+
+    resetTaskDraft();
+    setMainView('tasks');
+  }
+
+  function closeTaskComposer() {
+    saveTaskDraft(false);
   }
 
   function addNoteItem() {
@@ -406,21 +523,10 @@ export default function TaskNotesMobileScreen() {
     }));
   }
 
-  function addGlobalTag() {
-    const tag = normalizeTag(newGlobalTag);
-    if (!tag) {
-      return;
-    }
-    setSnapshot((prev) => ({
-      ...prev,
-      tags: addTag(prev.tags, tag),
-    }));
-    setNewGlobalTag('');
-  }
-
   function assignTagToItem(item: AnyItem, tag: string) {
     setSnapshot((prev) => ({
       ...prev,
+      tags: addTag(prev.tags, tag),
       tasks: prev.tasks.map((task) =>
         item.type === 'task' && task.id === item.id
           ? {
@@ -443,27 +549,29 @@ export default function TaskNotesMobileScreen() {
   }
 
   function removeTagFromItem(item: AnyItem, tag: string) {
-    setSnapshot((prev) => ({
-      ...prev,
-      tasks: prev.tasks.map((task) =>
-        item.type === 'task' && task.id === item.id
-          ? {
-              ...task,
-              tags: removeTag(task.tags, tag),
-              updatedAt: new Date().toISOString(),
-            }
-          : task
-      ),
-      notes: prev.notes.map((note) =>
-        item.type === 'note' && note.id === item.id
-          ? {
-              ...note,
-              tags: removeTag(note.tags, tag),
-              updatedAt: new Date().toISOString(),
-            }
-          : note
-      ),
-    }));
+    setSnapshot((prev) => {
+      return {
+        ...prev,
+        tasks: prev.tasks.map((task) =>
+          item.type === 'task' && task.id === item.id
+            ? {
+                ...task,
+                tags: removeTag(task.tags, tag),
+                updatedAt: new Date().toISOString(),
+              }
+            : task
+        ),
+        notes: prev.notes.map((note) =>
+          item.type === 'note' && note.id === item.id
+            ? {
+                ...note,
+                tags: removeTag(note.tags, tag),
+                updatedAt: new Date().toISOString(),
+              }
+            : note
+        ),
+      };
+    });
   }
 
   function removeGlobalTag(tag: string) {
@@ -476,6 +584,21 @@ export default function TaskNotesMobileScreen() {
     if (tagFilter.toLowerCase() === tag.toLowerCase()) {
       setTagFilter('all');
     }
+  }
+
+  function confirmRemoveGlobalTag(tag: string) {
+    const message = `Do you want to delete #${tag} from all tasks and notes?`;
+    if (Platform.OS === 'web') {
+      const confirmed = typeof globalThis.confirm === 'function' ? globalThis.confirm(message) : true;
+      if (confirmed) {
+        removeGlobalTag(tag);
+      }
+      return;
+    }
+    Alert.alert('Delete tag', `Do you want to delete #${tag} from all tasks and notes?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => removeGlobalTag(tag) },
+    ]);
   }
 
   function updateText(item: AnyItem, nextText: string) {
@@ -814,7 +937,7 @@ export default function TaskNotesMobileScreen() {
     await clearAuthSession();
     setAuthSession(null);
     authSessionRef.current = null;
-    setAuthPasswordInput('');
+    setAuthPasswordInput(DEV_DEFAULT_PASSWORD);
     setAuthNewPasswordInput('');
     setAuthChallengeSession('');
     setNewPasswordRequired(false);
@@ -827,6 +950,18 @@ export default function TaskNotesMobileScreen() {
     }
     setAuthStatusText('Logged out');
     setCloudStatus('Local only');
+    setMainView('tasks');
+  }
+
+  function confirmLogout() {
+    const hasUnsynced = hasUnsyncedChanges(snapshotRef.current);
+    const message = hasUnsynced
+      ? 'You have local changes not synced to cloud. Logging out now will discard them. Continue?'
+      : 'Do you want to logout from your account?';
+    Alert.alert('Confirm logout', message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Logout', style: 'destructive', onPress: () => void logoutAuth(true) },
+    ]);
   }
 
   function renderTask(item: AnyItem) {
@@ -918,11 +1053,10 @@ export default function TaskNotesMobileScreen() {
           </View>
         </View>
 
-        <ItemTextEditor
-          value={item.text}
-          placeholder="Task text"
-          onCommit={(nextValue) => updateText(item, nextValue)}
-        />
+        <Pressable style={styles.taskPreviewCard} onPress={() => openTaskEditor(item)}>
+          <Text style={styles.taskPreviewText}>{item.text || 'No task text'}</Text>
+          <Text style={styles.metaText}>Tap to edit</Text>
+        </Pressable>
 
         <View style={styles.tagsRow}>
           {item.tags.map((tag) => (
@@ -1093,11 +1227,194 @@ export default function TaskNotesMobileScreen() {
     queueCloudPush(snapshot);
   }, [snapshot, hydrated, cloudSyncEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  if (!authSession) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.authGateHeader}>
+          <Text style={styles.title}>TaskNotes Mobile</Text>
+          <Text style={styles.subtitle}>Sign in to access your tasks, notes, and cloud sync.</Text>
+        </View>
+
+        <View style={styles.authGateBody}>
+          <View style={styles.authGateCard}>
+            <Text style={styles.sectionTitle}>Cloud Login (Cognito)</Text>
+            <Text style={styles.metaText}>Status: {authStatusText}</Text>
+            <TextInput
+              value={authEmailInput}
+              onChangeText={setAuthEmailInput}
+              placeholder="Email"
+              autoCapitalize="none"
+              placeholderTextColor="#97A9B8"
+              style={styles.input}
+            />
+            <TextInput
+              value={authPasswordInput}
+              onChangeText={setAuthPasswordInput}
+              placeholder="Password"
+              autoCapitalize="none"
+              secureTextEntry
+              placeholderTextColor="#97A9B8"
+              style={styles.input}
+            />
+            {newPasswordRequired && (
+              <TextInput
+                value={authNewPasswordInput}
+                onChangeText={setAuthNewPasswordInput}
+                placeholder="New password required"
+                autoCapitalize="none"
+                secureTextEntry
+                placeholderTextColor="#97A9B8"
+                style={styles.input}
+              />
+            )}
+            <View style={styles.rowGap10}>
+              <Pressable style={styles.primaryButton} onPress={loginWithCognito}>
+                <Text style={styles.primaryButtonText}>Login</Text>
+              </Pressable>
+              {newPasswordRequired && (
+                <Pressable style={styles.secondaryButton} onPress={completeCognitoNewPassword}>
+                  <Text style={styles.secondaryButtonText}>Set New Password</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (mainView === 'task-compose') {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <View style={styles.headerTextWrap}>
+              <Text style={styles.title}>{taskDraftId ? 'Edit Task' : 'New Task'}</Text>
+              <Text style={styles.subtitle}>Set text, status, priority and tags, then save.</Text>
+            </View>
+            <Pressable
+              style={styles.userIconButton}
+              onPress={closeTaskComposer}
+              accessibilityRole="button"
+              accessibilityLabel="Close new task screen">
+              <Feather name="x" size={18} color="#E8F2FB" />
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.composerWrap}>
+          <View style={styles.rowGap10}>
+            <Pressable
+              style={[styles.sortChip, !taskDraftDone && styles.sortChipActive]}
+              onPress={() => setTaskDraftDone(false)}>
+              <Text style={[styles.sortChipText, !taskDraftDone && styles.sortChipTextActive]}>Open</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.sortChip, taskDraftDone && styles.sortChipActive]}
+              onPress={() => setTaskDraftDone(true)}>
+              <Text style={[styles.sortChipText, taskDraftDone && styles.sortChipTextActive]}>Done</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.composerPriorityRow}>
+            <Text style={styles.sectionTitle}>Priority</Text>
+            <View style={styles.priorityButtons}>
+              <Pressable onPress={() => setTaskDraftPriority((prev) => Math.max(1, prev - 1))}>
+                <Text style={styles.priorityBtn}>-</Text>
+              </Pressable>
+              <Text style={styles.priorityComposerValue}>P{taskDraftPriority}</Text>
+              <Pressable onPress={() => setTaskDraftPriority((prev) => Math.min(10, prev + 1))}>
+                <Text style={styles.priorityBtn}>+</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <TextInput
+            value={taskDraftText}
+            onChangeText={setTaskDraftText}
+            placeholder="Write a task"
+            placeholderTextColor="#97A9B8"
+            multiline
+            autoFocus
+            textAlignVertical="top"
+            style={styles.composerInput}
+          />
+
+          <View style={styles.rowGap10}>
+            <TextInput
+              value={taskDraftTagInput}
+              onChangeText={setTaskDraftTagInput}
+              onSubmitEditing={addTagToDraft}
+              placeholder="Add tag"
+              placeholderTextColor="#97A9B8"
+              style={[styles.input, styles.tagInput]}
+            />
+            <Pressable style={styles.secondaryButton} onPress={addTagToDraft}>
+              <Text style={styles.secondaryButtonText}>Add Tag</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.tagsRow}>
+            {taskDraftTags.map((tag) => (
+              <Pressable key={tag} style={styles.tagChip} onPress={() => removeTagFromDraft(tag)}>
+                <Text style={styles.tagText}>#{tag} ×</Text>
+              </Pressable>
+            ))}
+            {snapshot.tags
+              .filter((tag) => !taskDraftTags.some((own) => own.toLowerCase() === tag.toLowerCase()))
+              .slice(0, 8)
+              .map((tag) => (
+                <Pressable key={`draft-${tag}`} style={styles.tagChipAdd} onPress={() => setTaskDraftTags((prev) => addTag(prev, tag))}>
+                  <Text style={styles.tagTextAdd}>+ #{tag}</Text>
+                </Pressable>
+              ))}
+          </View>
+        </View>
+
+        <Pressable
+          style={styles.saveFabButton}
+          onPress={saveTaskDraft}
+          accessibilityRole="button"
+          accessibilityLabel="Save task">
+          <Feather name="check" size={18} color="#FFFFFF" />
+          <Text style={styles.saveFabText}>Save</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Text style={styles.title}>TaskNotes Mobile</Text>
-        <Text style={styles.subtitle}>React Native app aligned with TaskNotes Electron features</Text>
+        <View style={styles.headerRow}>
+          <View style={styles.headerTextWrap}>
+            <Text style={styles.title}>TaskNotes Mobile</Text>
+            <Text style={styles.subtitle}>React Native app aligned with TaskNotes Electron features</Text>
+          </View>
+          <View style={styles.headerActions}>
+            <Pressable
+              style={styles.userIconButton}
+              onPress={() => setMainView('account')}
+              accessibilityRole="button"
+              accessibilityLabel="Open account">
+              <Feather name="user" size={18} color="#E8F2FB" />
+            </Pressable>
+            <Pressable
+              style={styles.userIconButton}
+              onPress={() => setMainView('tools')}
+              accessibilityRole="button"
+              accessibilityLabel="Open global tools">
+              <Feather name="settings" size={18} color="#E8F2FB" />
+            </Pressable>
+            <Pressable
+              style={styles.userIconButton}
+              onPress={() => setMainView('status')}
+              accessibilityRole="button"
+              accessibilityLabel="Open status info">
+              <Feather name="info" size={18} color="#E8F2FB" />
+            </Pressable>
+          </View>
+        </View>
       </View>
 
       <View style={styles.segmentRow}>
@@ -1107,120 +1424,33 @@ export default function TaskNotesMobileScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollBody}>
-        <View style={styles.utilityCard}>
-          <Text style={styles.sectionTitle}>Status</Text>
-          <Text style={styles.statusLine}>
-            Save:{' '}
-            {saveState === 'error'
-              ? `Error (${saveError || 'unknown'})`
-              : saveState === 'saving'
-                ? 'Saving...'
-                : saveState === 'saved'
-                  ? 'All changes saved'
-                  : 'Idle'}
-          </Text>
-          <Text style={styles.statusLine}>Cloud: {cloudStatus}</Text>
-          <Text style={styles.statusLine}>Auth: {authSession ? authSession.email : 'Not authenticated'}</Text>
-          <Text style={styles.statusLine}>
-            Token expiry: {authSession?.expiresAt ? formatDate(new Date(authSession.expiresAt).toISOString()) : '-'}
-          </Text>
-          <Text style={styles.statusLine}>Conflicts last sync: {lastConflictCount}</Text>
-          <Text style={styles.statusLine}>Sync pending: {syncPending ? 'Yes' : 'No'}</Text>
-        </View>
-
-        <View style={styles.utilityCard}>
-          <Text style={styles.sectionTitle}>Cloud Auth Session (Cognito)</Text>
-          <Text style={styles.metaText}>Status: {authStatusText}</Text>
-          <TextInput
-            value={authEmailInput}
-            onChangeText={setAuthEmailInput}
-            placeholder="Email"
-            autoCapitalize="none"
-            placeholderTextColor="#97A9B8"
-            style={styles.input}
-          />
-          <TextInput
-            value={authPasswordInput}
-            onChangeText={setAuthPasswordInput}
-            placeholder="Password"
-            autoCapitalize="none"
-            secureTextEntry
-            placeholderTextColor="#97A9B8"
-            style={styles.input}
-          />
-          {newPasswordRequired && (
+        {(mainView === 'tasks' || mainView === 'notes' || mainView === 'trash') && (
+          <View style={styles.utilityCard}>
             <TextInput
-              value={authNewPasswordInput}
-              onChangeText={setAuthNewPasswordInput}
-              placeholder="New password required"
-              autoCapitalize="none"
-              secureTextEntry
+              value={searchText}
+              onChangeText={setSearchText}
+              placeholder="Search text or tags"
               placeholderTextColor="#97A9B8"
               style={styles.input}
             />
-          )}
-          <View style={styles.rowGap10}>
-            <Pressable style={styles.secondaryButton} onPress={loginWithCognito}>
-              <Text style={styles.secondaryButtonText}>Login</Text>
-            </Pressable>
-            <Pressable style={styles.secondaryButton} onPress={refreshCognitoAuth}>
-              <Text style={styles.secondaryButtonText}>Refresh Token</Text>
-            </Pressable>
-            {newPasswordRequired && (
-              <Pressable style={styles.secondaryButton} onPress={completeCognitoNewPassword}>
-                <Text style={styles.secondaryButtonText}>Set New Password</Text>
-              </Pressable>
+            {mainView === 'notes' && (
+              <>
+                <View style={styles.sortRow}>
+                  <SortChip label="All tags" active={tagFilter === 'all'} onPress={() => setTagFilter('all')} />
+                  {snapshot.tags.map((tag) => (
+                    <SortChip
+                      key={`tag-filter-${tag}`}
+                      label={`#${tag}`}
+                      active={tagFilter.toLowerCase() === tag.toLowerCase()}
+                      onPress={() => setTagFilter(tag)}
+                    />
+                  ))}
+                </View>
+                {!snapshot.tags.length && <Text style={styles.metaText}>No tags available yet.</Text>}
+              </>
             )}
-            <Pressable style={styles.secondaryButton} onPress={logoutAuth}>
-              <Text style={styles.secondaryButtonText}>Logout</Text>
-            </Pressable>
           </View>
-        </View>
-
-        <View style={styles.utilityCard}>
-          <Text style={styles.sectionTitle}>Global Tools</Text>
-          <View style={styles.rowGap10}>
-            <Pressable style={styles.secondaryButton} onPress={importData}>
-              <Text style={styles.secondaryButtonText}>Import JSON</Text>
-            </Pressable>
-            <Pressable style={styles.secondaryButton} onPress={exportData}>
-              <Text style={styles.secondaryButtonText}>Export JSON</Text>
-            </Pressable>
-          </View>
-          <TextInput
-            value={newGlobalTag}
-            onChangeText={setNewGlobalTag}
-            onSubmitEditing={addGlobalTag}
-            placeholder="Create global tag"
-            placeholderTextColor="#97A9B8"
-            style={styles.input}
-          />
-          <View style={styles.tagsRow}>
-            <SortChip label="All tags" active={tagFilter === 'all'} onPress={() => setTagFilter('all')} />
-            {snapshot.tags.map((tag) => (
-              <View key={tag} style={styles.globalTagWrap}>
-                <Pressable onPress={() => setTagFilter(tag)}>
-                  <Text style={[styles.globalTagText, tagFilter === tag && styles.globalTagTextActive]}>
-                    #{tag}
-                  </Text>
-                </Pressable>
-                <Pressable onPress={() => removeGlobalTag(tag)}>
-                  <Text style={styles.removeTagText}>×</Text>
-                </Pressable>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.utilityCard}>
-          <TextInput
-            value={searchText}
-            onChangeText={setSearchText}
-            placeholder="Search text or tags"
-            placeholderTextColor="#97A9B8"
-            style={styles.input}
-          />
-        </View>
+        )}
 
         {mainView === 'tasks' && (
           <View style={styles.sectionWrap}>
@@ -1233,19 +1463,6 @@ export default function TaskNotesMobileScreen() {
                 </Text>
               ))}
             </View>
-
-            <Text style={styles.sectionTitle}>New Task</Text>
-            <TextInput
-              value={newTaskText}
-              onChangeText={setNewTaskText}
-              onSubmitEditing={addTaskItem}
-              placeholder="Write a task and press Enter"
-              placeholderTextColor="#97A9B8"
-              style={styles.input}
-            />
-            <Pressable style={styles.primaryButton} onPress={addTaskItem}>
-              <Text style={styles.primaryButtonText}>Add Task</Text>
-            </Pressable>
 
             <View style={styles.sortRow}>
               <SortChip label="Manual" active={snapshot.settings.taskSort === 'manual'} onPress={() => setTaskSort('manual')} />
@@ -1276,6 +1493,19 @@ export default function TaskNotesMobileScreen() {
               <SortChip label="Open" active={taskFilter === 'open'} onPress={() => setTaskFilter('open')} />
               <SortChip label="Done" active={taskFilter === 'done'} onPress={() => setTaskFilter('done')} />
             </View>
+
+            <View style={styles.sortRow}>
+              <SortChip label="All tags" active={tagFilter === 'all'} onPress={() => setTagFilter('all')} />
+              {snapshot.tags.map((tag) => (
+                <SortChip
+                  key={`task-tag-filter-${tag}`}
+                  label={`#${tag}`}
+                  active={tagFilter.toLowerCase() === tag.toLowerCase()}
+                  onPress={() => setTagFilter(tag)}
+                />
+              ))}
+            </View>
+            {!snapshot.tags.length && <Text style={styles.metaText}>No tags available yet.</Text>}
 
             <Text style={styles.metaText}>
               Manual reorder enabled: {manualTaskReorderEnabled ? 'Yes (manual mode + no filters)' : 'No'}
@@ -1342,6 +1572,83 @@ export default function TaskNotesMobileScreen() {
             {!trashItems.length && <Text style={styles.emptyText}>Trash is empty.</Text>}
           </View>
         )}
+
+        {mainView === 'account' && (
+          <View style={styles.sectionWrap}>
+            <Text style={styles.sectionTitle}>Account</Text>
+            <Text style={styles.metaText}>Email: {authSession.email}</Text>
+            <Text style={styles.metaText}>Status: {authStatusText}</Text>
+            <Text style={styles.metaText}>
+              Token expiry: {authSession.expiresAt ? formatDate(new Date(authSession.expiresAt).toISOString()) : '-'}
+            </Text>
+            <View style={styles.rowGap10}>
+              <Pressable style={styles.secondaryButton} onPress={refreshCognitoAuth}>
+                <Text style={styles.secondaryButtonText}>Refresh Token</Text>
+              </Pressable>
+              <Pressable style={styles.secondaryButton} onPress={() => setMainView('tasks')}>
+                <Text style={styles.secondaryButtonText}>Back to Tasks</Text>
+              </Pressable>
+              <Pressable style={styles.deleteButton} onPress={confirmLogout}>
+                <Text style={styles.deleteButtonText}>Logout</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {mainView === 'tools' && (
+          <View style={styles.sectionWrap}>
+            <Text style={styles.sectionTitle}>Global Tools</Text>
+            <View style={styles.rowGap10}>
+              <Pressable style={styles.secondaryButton} onPress={importData}>
+                <Text style={styles.secondaryButtonText}>Import JSON</Text>
+              </Pressable>
+              <Pressable style={styles.secondaryButton} onPress={exportData}>
+                <Text style={styles.secondaryButtonText}>Export JSON</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.metaText}>Delete tags from here only.</Text>
+            <View style={styles.tagsRow}>
+              {snapshot.tags.map((tag) => (
+                <View key={tag} style={styles.globalTagWrap}>
+                  <Text style={styles.globalTagText}>#{tag}</Text>
+                  <Pressable onPress={() => confirmRemoveGlobalTag(tag)}>
+                    <Text style={styles.removeTagText}>×</Text>
+                  </Pressable>
+                </View>
+              ))}
+              {!snapshot.tags.length && <Text style={styles.metaText}>No tags available.</Text>}
+            </View>
+            <Pressable style={styles.secondaryButton} onPress={() => setMainView('tasks')}>
+              <Text style={styles.secondaryButtonText}>Back to Tasks</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {mainView === 'status' && (
+          <View style={styles.sectionWrap}>
+            <Text style={styles.sectionTitle}>Status</Text>
+            <Text style={styles.statusLine}>
+              Save:{' '}
+              {saveState === 'error'
+                ? `Error (${saveError || 'unknown'})`
+                : saveState === 'saving'
+                  ? 'Saving...'
+                  : saveState === 'saved'
+                    ? 'All changes saved'
+                    : 'Idle'}
+            </Text>
+            <Text style={styles.statusLine}>Cloud: {cloudStatus}</Text>
+            <Text style={styles.statusLine}>Auth: {authSession ? authSession.email : 'Not authenticated'}</Text>
+            <Text style={styles.statusLine}>
+              Token expiry: {authSession?.expiresAt ? formatDate(new Date(authSession.expiresAt).toISOString()) : '-'}
+            </Text>
+            <Text style={styles.statusLine}>Conflicts last sync: {lastConflictCount}</Text>
+            <Text style={styles.statusLine}>Sync pending: {syncPending ? 'Yes' : 'No'}</Text>
+            <Pressable style={styles.secondaryButton} onPress={() => setMainView('tasks')}>
+              <Text style={styles.secondaryButtonText}>Back to Tasks</Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
 
       {undoState && (
@@ -1352,6 +1659,16 @@ export default function TaskNotesMobileScreen() {
           </Pressable>
         </View>
       )}
+
+      {mainView === 'tasks' && (
+        <Pressable
+          style={styles.fabButton}
+          onPress={openTaskComposer}
+          accessibilityRole="button"
+          accessibilityLabel="Create new task">
+          <Feather name="plus" size={22} color="#FFFFFF" />
+        </Pressable>
+      )}
     </SafeAreaView>
   );
 }
@@ -1361,11 +1678,54 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#EFF4F8',
   },
+  authGateHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
+    backgroundColor: '#1B334A',
+  },
+  authGateBody: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  authGateCard: {
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#D8E3EC',
+    gap: 10,
+  },
   header: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 10,
     backgroundColor: '#1B334A',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  headerTextWrap: {
+    flex: 1,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  userIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#3F607C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#26445E',
   },
   title: {
     color: '#FFFFFF',
@@ -1443,6 +1803,38 @@ const styles = StyleSheet.create({
     color: '#152A3C',
     backgroundColor: '#F9FCFF',
   },
+  composerWrap: {
+    flex: 1,
+    padding: 12,
+    paddingBottom: 96,
+    gap: 10,
+  },
+  composerPriorityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  priorityComposerValue: {
+    fontWeight: '800',
+    color: '#264863',
+    minWidth: 34,
+    textAlign: 'center',
+  },
+  composerInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#C3D1DE',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    color: '#152A3C',
+    backgroundColor: '#F9FCFF',
+    fontSize: 16,
+  },
+  tagInput: {
+    flex: 1,
+    minWidth: 140,
+  },
   primaryButton: {
     borderRadius: 10,
     backgroundColor: '#0E5A90',
@@ -1489,6 +1881,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  taskPreviewCard: {
+    borderWidth: 1,
+    borderColor: '#C7D7E5',
+    borderRadius: 10,
+    backgroundColor: '#F7FBFF',
+    padding: 10,
+    gap: 4,
+  },
+  taskPreviewText: {
+    color: '#1A3349',
+    fontSize: 15,
+    fontWeight: '600',
   },
   checkbox: {
     width: 22,
@@ -1665,6 +2070,45 @@ const styles = StyleSheet.create({
   },
   undoAction: {
     color: '#93D5FF',
+    fontWeight: '800',
+  },
+  fabButton: {
+    position: 'absolute',
+    right: 18,
+    bottom: 18,
+    width: 56,
+    height: 56,
+    borderRadius: 999,
+    backgroundColor: '#0E5A90',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0B3656',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  saveFabButton: {
+    position: 'absolute',
+    right: 18,
+    bottom: 18,
+    minWidth: 108,
+    height: 52,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    backgroundColor: '#0E5A90',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: '#0B3656',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  saveFabText: {
+    color: '#FFFFFF',
     fontWeight: '800',
   },
 });

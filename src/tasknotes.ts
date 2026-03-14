@@ -64,8 +64,8 @@ export function buildDefaultSnapshot(): AppSnapshot {
     notes: [],
     tags: [],
     settings: {
-      taskSort: 'manual',
-      noteSort: 'manual',
+      taskSort: 'created-desc',
+      noteSort: 'created-desc',
     },
     sync: {
       serverUpdatedAt: '',
@@ -122,7 +122,7 @@ function normalizeText(input: unknown): string {
 
 function clampPriority(value: unknown): number {
   if (typeof value !== 'number' || Number.isNaN(value)) {
-    return 5;
+    return 1;
   }
   return Math.max(1, Math.min(10, Math.round(value)));
 }
@@ -240,7 +240,7 @@ export function createTask(text: string, fallbackOrder: number): Task {
     type: 'task',
     text: normalizeText(text),
     done: false,
-    priority: 5,
+    priority: 1,
     createdAt: now,
     updatedAt: now,
     editCount: 0,
