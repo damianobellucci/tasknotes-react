@@ -16,6 +16,26 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo start
    ```
 
+3. Configure environment variables
+
+   Copy `.env.example` to `.env` and fill your values:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Required for Cognito login:
+
+   - `EXPO_PUBLIC_COGNITO_REGION`
+   - `EXPO_PUBLIC_COGNITO_CLIENT_ID`
+
+   Optional:
+
+   - `EXPO_PUBLIC_TASKNOTES_SYNC_URL`
+   - `EXPO_PUBLIC_TASKNOTES_SYNC_API_KEY`
+
+   After changing `.env`, restart Expo.
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)
