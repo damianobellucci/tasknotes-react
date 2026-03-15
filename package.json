@@ -10,6 +10,10 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
+    "test:user": "jest -c jest.user.config.js",
+    "test:e2e:apk": "maestro test .maestro/flows/01_smoke_create_task.yaml",
+    "test:e2e:apk:all": "maestro test .maestro/flows",
+    "test:e2e:apk:headless": "maestro test --format junit --output .maestro/results .maestro/flows",
     "test:watch": "jest --watch",
     "release:check": "npm run lint && npm test",
     "release:patch": "npm run release:check && npm version patch -m \"chore(release): %s\"",
@@ -56,12 +60,16 @@
     "react-native-worklets": "0.5.1"
   },
   "devDependencies": {
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^29.5.14",
     "@types/react": "~19.1.0",
+    "eas-cli": "^16.25.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "jest": "~29.7.0",
-    "eas-cli": "^16.25.0",
+    "jest-expo": "~54.0.0",
+    "react-test-renderer": "^19.1.0",
     "ts-jest": "^29.4.6",
     "typescript": "~5.9.2"
   },

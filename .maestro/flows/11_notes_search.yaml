@@ -1,0 +1,14 @@
+appId: com.damianobellucci.tasknotes
+---
+- launchApp:
+    clearState: true
+- tapOn: Enter local mode (dev)
+- tapOn: Notes
+- assertVisible: New Note
+- tapOn: Write a note and press Enter
+- inputText: Searchable note maestro
+- tapOn: Add Note
+- assertVisible: Searchable note maestro
+- tapOn: Search text or tags
+- inputText: Searchable
+- assertVisible: Searchable note maestro

@@ -388,6 +388,8 @@ export default function TaskNotesMobileScreen() {
 
   function saveTaskDraft(showValidation = true) {
     const text = taskDraftText.trim();
+    const pendingTag = normalizeTag(taskDraftTagInput);
+    const effectiveTags = pendingTag ? addTag(taskDraftTags, pendingTag) : taskDraftTags;
     if (!text) {
       if (taskDraftId && showValidation) {
         Alert.alert('Task text required', 'Insert text before saving changes.');
@@ -403,7 +405,7 @@ export default function TaskNotesMobileScreen() {
       if (taskDraftId) {
         return {
           ...prev,
-          tags: taskDraftTags.reduce((acc, tag) => addTag(acc, tag), prev.tags),
+          tags: effectiveTags.reduce((acc, tag) => addTag(acc, tag), prev.tags),
           tasks: prev.tasks.map((task) =>
             task.id === taskDraftId
               ? {
@@ -411,7 +413,7 @@ export default function TaskNotesMobileScreen() {
                   text,
                   done: taskDraftDone,
                   priority: taskDraftPriority,
-                  tags: taskDraftTags,
+                  tags: effectiveTags,
                   updatedAt: now,
                   editCount: task.text === text ? task.editCount : task.editCount + 1,
                 }
@@ -425,14 +427,14 @@ export default function TaskNotesMobileScreen() {
         ...created,
         done: taskDraftDone,
         priority: taskDraftPriority,
-        tags: taskDraftTags,
+        tags: effectiveTags,
         updatedAt: now,
       };
 
       if (prev.settings.taskSort === 'manual') {
         return {
           ...prev,
-          tags: taskDraftTags.reduce((acc, tag) => addTag(acc, tag), prev.tags),
+          tags: effectiveTags.reduce((acc, tag) => addTag(acc, tag), prev.tags),
           tasks: [
             { ...createdTask, manualOrder: 0 },
             ...prev.tasks.map((task) => ({ ...task, manualOrder: task.manualOrder + 1 })),
@@ -442,7 +444,7 @@ export default function TaskNotesMobileScreen() {
 
       return {
         ...prev,
-        tags: taskDraftTags.reduce((acc, tag) => addTag(acc, tag), prev.tags),
+        tags: effectiveTags.reduce((acc, tag) => addTag(acc, tag), prev.tags),
         tasks: [...prev.tasks, createdTask],
       };
     });
@@ -599,6 +601,16 @@ export default function TaskNotesMobileScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => removeGlobalTag(tag) },
     ]);
+  }
+
+  function seedDevTestTag() {
+    if (!__DEV__) {
+      return;
+    }
+    setSnapshot((prev) => ({
+      ...prev,
+      tags: addTag(prev.tags, 'qa'),
+    }));
   }
 
   function updateText(item: AnyItem, nextText: string) {
@@ -964,6 +976,22 @@ export default function TaskNotesMobileScreen() {
     ]);
   }
 
+  function enterLocalModeDevOnly() {
+    if (!__DEV__) {
+      return;
+    }
+    const email = authEmailInput.trim() || DEV_DEFAULT_EMAIL || 'dev-local@tasknotes.local';
+    const localSession: AuthSession = {
+      email,
+      accessToken: '',
+      refreshToken: '',
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+    };
+    setAuthSession(localSession);
+    setAuthStatusText('Local dev mode');
+    void saveAuthSession(localSession);
+  }
+
   function renderTask(item: AnyItem) {
     if (item.type !== 'task') {
       return null;
@@ -1060,7 +1088,11 @@ export default function TaskNotesMobileScreen() {
 
         <View style={styles.tagsRow}>
           {item.tags.map((tag) => (
-            <Pressable key={tag} style={styles.tagChip} onPress={() => removeTagFromItem(item, tag)}>
+            <Pressable
+              key={tag}
+              style={styles.tagChip}
+              accessibilityLabel={`Remove tag ${tag} from task`}
+              onPress={() => removeTagFromItem(item, tag)}>
               <Text style={styles.tagText}>#{tag} ×</Text>
             </Pressable>
           ))}
@@ -1068,7 +1100,11 @@ export default function TaskNotesMobileScreen() {
             .filter((tag) => !item.tags.some((own) => own.toLowerCase() === tag.toLowerCase()))
             .slice(0, 4)
             .map((tag) => (
-              <Pressable key={`a-${item.id}-${tag}`} style={styles.tagChipAdd} onPress={() => assignTagToItem(item, tag)}>
+              <Pressable
+                key={`a-${item.id}-${tag}`}
+                style={styles.tagChipAdd}
+                accessibilityLabel={`Add tag ${tag} to task`}
+                onPress={() => assignTagToItem(item, tag)}>
                 <Text style={styles.tagTextAdd}>+ #{tag}</Text>
               </Pressable>
             ))}
@@ -1129,7 +1165,11 @@ export default function TaskNotesMobileScreen() {
 
         <View style={styles.tagsRow}>
           {item.tags.map((tag) => (
-            <Pressable key={tag} style={styles.tagChip} onPress={() => removeTagFromItem(item, tag)}>
+            <Pressable
+              key={tag}
+              style={styles.tagChip}
+              accessibilityLabel={`Remove tag ${tag} from note`}
+              onPress={() => removeTagFromItem(item, tag)}>
               <Text style={styles.tagText}>#{tag} ×</Text>
             </Pressable>
           ))}
@@ -1137,7 +1177,11 @@ export default function TaskNotesMobileScreen() {
             .filter((tag) => !item.tags.some((own) => own.toLowerCase() === tag.toLowerCase()))
             .slice(0, 4)
             .map((tag) => (
-              <Pressable key={`a-${item.id}-${tag}`} style={styles.tagChipAdd} onPress={() => assignTagToItem(item, tag)}>
+              <Pressable
+                key={`a-${item.id}-${tag}`}
+                style={styles.tagChipAdd}
+                accessibilityLabel={`Add tag ${tag} to note`}
+                onPress={() => assignTagToItem(item, tag)}>
                 <Text style={styles.tagTextAdd}>+ #{tag}</Text>
               </Pressable>
             ))}
@@ -1271,6 +1315,11 @@ export default function TaskNotesMobileScreen() {
               <Pressable style={styles.primaryButton} onPress={loginWithCognito}>
                 <Text style={styles.primaryButtonText}>Login</Text>
               </Pressable>
+              {__DEV__ && (
+                <Pressable style={styles.secondaryButton} onPress={enterLocalModeDevOnly}>
+                  <Text style={styles.secondaryButtonText}>Enter local mode (dev)</Text>
+                </Pressable>
+              )}
               {newPasswordRequired && (
                 <Pressable style={styles.secondaryButton} onPress={completeCognitoNewPassword}>
                   <Text style={styles.secondaryButtonText}>Set New Password</Text>
@@ -1346,10 +1395,11 @@ export default function TaskNotesMobileScreen() {
               onChangeText={setTaskDraftTagInput}
               onSubmitEditing={addTagToDraft}
               placeholder="Add tag"
+              accessibilityLabel="Task tag input"
               placeholderTextColor="#97A9B8"
               style={[styles.input, styles.tagInput]}
             />
-            <Pressable style={styles.secondaryButton} onPress={addTagToDraft}>
+            <Pressable style={styles.secondaryButton} onPress={addTagToDraft} accessibilityLabel="Add draft tag">
               <Text style={styles.secondaryButtonText}>Add Tag</Text>
             </Pressable>
           </View>
@@ -1605,13 +1655,18 @@ export default function TaskNotesMobileScreen() {
               <Pressable style={styles.secondaryButton} onPress={exportData}>
                 <Text style={styles.secondaryButtonText}>Export JSON</Text>
               </Pressable>
+              {__DEV__ && (
+                <Pressable style={styles.secondaryButton} onPress={seedDevTestTag} accessibilityLabel="Seed test tag dev">
+                  <Text style={styles.secondaryButtonText}>Seed test tag (dev)</Text>
+                </Pressable>
+              )}
             </View>
             <Text style={styles.metaText}>Delete tags from here only.</Text>
             <View style={styles.tagsRow}>
               {snapshot.tags.map((tag) => (
                 <View key={tag} style={styles.globalTagWrap}>
                   <Text style={styles.globalTagText}>#{tag}</Text>
-                  <Pressable onPress={() => confirmRemoveGlobalTag(tag)}>
+                  <Pressable accessibilityLabel={`Delete global tag ${tag}`} onPress={() => confirmRemoveGlobalTag(tag)}>
                     <Text style={styles.removeTagText}>×</Text>
                   </Pressable>
                 </View>

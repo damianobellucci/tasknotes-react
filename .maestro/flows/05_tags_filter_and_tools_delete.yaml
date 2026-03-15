@@ -1,0 +1,15 @@
+appId: com.damianobellucci.tasknotes
+---
+- launchApp:
+    clearState: true
+- assertVisible: Cloud Login (Cognito)
+- tapOn: Enter local mode (dev)
+- tapOn: Open global tools
+- assertVisible: Global Tools
+- tapOn: Seed test tag dev
+- assertVisible: Delete global tag qa
+- tapOn: Delete global tag qa
+- tapOn: Delete
+- assertVisible: No tags available.
+- tapOn: Back to Tasks
+- assertVisible: No tags available yet.

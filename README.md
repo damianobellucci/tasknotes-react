@@ -86,6 +86,32 @@ This repository is configured for Semantic Versioning with Git tags and GitHub R
    npm run submit:ios
    ```
 
+## Android APK E2E tests (Maestro)
+
+Use Maestro to run user-like end-to-end flows against the Android app.
+
+1. Install Maestro CLI (one-time):
+
+   ```bash
+   curl -Ls "https://get.maestro.mobile.dev" | bash
+   ```
+
+2. Build/install the Android app on emulator or device:
+
+   ```bash
+   npm run android
+   ```
+
+3. Run the smoke E2E flow:
+
+   ```bash
+   npm run test:e2e:apk
+   ```
+
+Flow file:
+
+- `.maestro/flows/smoke-dev.yaml`
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)

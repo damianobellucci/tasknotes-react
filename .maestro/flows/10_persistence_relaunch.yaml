@@ -1,0 +1,19 @@
+appId: com.damianobellucci.tasknotes
+---
+- launchApp:
+    clearState: true
+- tapOn: Enter local mode (dev)
+- tapOn: Create new task
+- tapOn: Write a task
+- inputText: Persisted task
+- tapOn: Save task
+- assertVisible: Persisted task
+- tapOn: Notes
+- tapOn: Write a note and press Enter
+- inputText: Persisted note
+- tapOn: Add Note
+- assertVisible: Persisted note
+- launchApp
+- assertVisible: Persisted note
+- tapOn: Tasks
+- assertVisible: Persisted task

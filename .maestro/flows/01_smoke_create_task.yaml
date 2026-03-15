@@ -1,0 +1,14 @@
+appId: com.damianobellucci.tasknotes
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: Enter local mode (dev)
+    optional: true
+- assertVisible: Task Summary
+- tapOn: Create new task
+- assertVisible: New Task
+- tapOn: Write a task
+- inputText: Maestro smoke task
+- tapOn: Save task
+- assertVisible: Maestro smoke task

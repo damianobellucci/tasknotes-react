@@ -1,0 +1,25 @@
+appId: com.damianobellucci.tasknotes
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: Enter local mode (dev)
+    optional: true
+- tapOn: Create new task
+- tapOn: Write a task
+- inputText: Priority done task
+- tapOn: Save task
+- assertVisible: Priority done task
+- tapOn: Priority done task
+- assertVisible: Edit Task
+- tapOn: +
+- tapOn: +
+- tapOn: Done
+- tapOn: Save task
+- assertVisible: P3
+- tapOn: Done
+- assertVisible: Priority done task
+- tapOn: Open
+- assertVisible: No tasks to show.
+- tapOn: All
+- assertVisible: Priority done task

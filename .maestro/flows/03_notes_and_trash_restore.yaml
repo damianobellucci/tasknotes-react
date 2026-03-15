@@ -1,0 +1,25 @@
+appId: com.damianobellucci.tasknotes
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: Enter local mode (dev)
+    optional: true
+- tapOn: Notes
+- assertVisible: New Note
+- tapOn: Write a note and press Enter
+- inputText: Maestro note 1
+- tapOn: Add Note
+- assertVisible: Maestro note 1
+- tapOn: Tasks
+- tapOn: Create new task
+- tapOn: Write a task
+- inputText: Task to trash
+- tapOn: Save task
+- assertVisible: Task to trash
+- tapOn: Delete
+- assertVisible: Item deleted
+- tapOn: Trash
+- assertVisible: Task to trash
+- tapOn: Restore
+- assertVisible: Trash is empty.

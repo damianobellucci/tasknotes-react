@@ -1,0 +1,21 @@
+appId: com.damianobellucci.tasknotes
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: Enter local mode (dev)
+    optional: true
+- assertVisible: Task Summary
+- tapOn: Manual
+- assertVisible: Manual reorder enabled: Yes
+- tapOn: Create new task
+- tapOn: Write a task
+- inputText: Manual first
+- tapOn: Save task
+- assertVisible: Manual first
+- tapOn: Create new task
+- tapOn: Write a task
+- inputText: Manual second
+- tapOn: Save task
+- assertVisible: Manual second
+- assertVisible: Manual first

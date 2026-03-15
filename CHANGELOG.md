@@ -10,6 +10,7 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 - Header quick actions for account, global tools, and sync status pages.
 - Full-screen task composer flow with explicit Save action, draft tag management, and task edit mode.
 - Task tag filter chips in the task filtering area, including `All tags` and per-tag chips.
+- Android APK end-to-end smoke testing with Maestro (`.maestro/flows/smoke-dev.yaml`) and npm scripts for local/CI execution.
 
 ### Changed
 - Task creation now uses a floating action button and dedicated compose screen instead of inline task input.

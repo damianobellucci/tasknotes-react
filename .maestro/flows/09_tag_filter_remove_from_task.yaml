@@ -1,0 +1,18 @@
+appId: com.damianobellucci.tasknotes
+---
+- launchApp:
+    clearState: true
+- tapOn: Enter local mode (dev)
+- tapOn: Open global tools
+- tapOn: Seed test tag dev
+- assertVisible: Delete global tag qa
+- tapOn: Back to Tasks
+- tapOn: Create new task
+- tapOn: Write a task
+- inputText: Tagged task card
+- tapOn: Save task
+- assertVisible: Tagged task card
+- tapOn: Add tag qa to task
+- assertVisible: Remove tag qa from task
+- tapOn: Remove tag qa from task
+- assertVisible: Add tag qa to task
